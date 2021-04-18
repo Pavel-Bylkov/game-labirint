@@ -59,3 +59,4 @@ while run:
     aurum.reset()
     pg.display.update()
     clock.tick(FPS)
+
