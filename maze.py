@@ -1,11 +1,16 @@
 import pygame as pg
 from random import randint
+from time import time
 
 # ToDo Доделать расстановку стен
 # ToDo Добавить охранников
 # Todo Загрузить музыку для фона, и эффектов - поймал охранник, собрал предмет, Геемовер и Победа
 
 directions = {"up": 0, "down": 180, "left": -90, "right": 90}
+WHITE = (255, 255, 255)
+BLUE = (45, 62, 172)
+GREEN = (50, 200, 60)
+RED = (150, 30, 30)
 
 
 class GameSprite(pg.sprite.Sprite):
@@ -74,7 +79,58 @@ class Wall(pg.sprite.Sprite):
         self.rect.y = y
 
 
+class Text:
+    def __init__(self, text, x, y, fsize=30, color=WHITE):
+        self.text = text
+        self.color = color
+        self.fsize = fsize
+        self.font = pg.font.SysFont("Arial", fsize)
+        self.image = self.font.render(self.text, True, self.color)
+        self.x = x
+        self.y = y
+
+    def set_text(self, text):
+        self.text = text
+        self.render()
+
+    def render(self):
+        self.image = self.font.render(self.text, True, self.color)
+
+    def set_color(self, color):
+        self.color = color
+        self.render()
+
+    def set_pos(self, x, y):
+        self.x = x
+        self.y = y
+
+    def draw(self, window2):
+        window2.blit(self.image, (self.x, self.y))
+
+    def text_update(self, text, window2):
+        self.set_text(text)
+        self.draw(window2)
+
+
+class Timer(Text):
+    def __init__(self, text, start_time, x, y, fsize, color):
+        super().__init__(text, x, y, fsize, color)
+        self.start_time = start_time
+        self.last_time = time()
+        self.text_prefix = text  # чтобы не перезаписывать каждый раз Тест до значения таймера
+
+    def update(self, window2):
+        if self.start_time > 0 and time() - self.last_time > 1:
+            self.start_time -= 1
+            self.last_time = time()
+        self.text_update(self.text_prefix + str(self.start_time), window2)
+
+    def is_end(self):
+        return self.start_time == 0
+
+
 pg.init()  # настройка pygame на наше железо, в том числе видео карта, звуковая и установленные шрифты
+pg.font.init()
 win_width, win_height = 1200, 900  # задаем размеры экранной поверхности
 window = pg.display.set_mode((win_width, win_height))
 
@@ -82,7 +138,10 @@ background = pg.image.load("fon0.jpg")
 # растягиваем или сжимаем картинку до нужного размера
 background = pg.transform.scale(background, (win_width, win_height))
 
-BLUE = (45, 62, 172)
+font = pg.font.SysFont("Arial", 120)  # подключаем модуль font из pygame и создаем объект Шрифт
+win = font.render("You WIN!!!", True, GREEN)
+lose = font.render("You LOSE!!!", True, RED)
+
 
 hero = Player(img="шар.png", x=45, y=45, size_x=50, size_y=50, speed=10)
 guards = pg.sprite.Group()
@@ -104,6 +163,8 @@ walls.add(
 )
 # window.fill(BLUE)   # заливка экрана одним цветом
 
+timer = Timer(text="Time: ", start_time=30, x=win_width - 150, y=10, fsize=30, color=WHITE)
+
 clock = pg.time.Clock()
 FPS = 30  # частота срабатывания таймера 30 кадров в секунду
 
@@ -112,13 +173,20 @@ while run:
     for event in pg.event.get():
         if event.type == pg.QUIT:
             run = False
+    # обновляем координаты и накладываем на экранную поверхность фон и всех спрайтов
     window.blit(background, (0, 0))  # копирование изображения на экранную поверхность
     hero.update()
     guards.update()
     hero.reset()
     aurum.reset()
+
     guards.draw(window)
     walls.draw(window)  # вызываем групповой метод копирования изображения каждой стены на экранную поверхность
+    timer.update(window)
     pg.display.update()
+
     clock.tick(FPS)
+
+    if timer.is_end():
+        window.blit(lose, (win_width//2 - 100, win_height//2 - 50))
 
