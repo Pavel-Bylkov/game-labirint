@@ -183,10 +183,12 @@ while run:
     guards.draw(window)
     walls.draw(window)  # вызываем групповой метод копирования изображения каждой стены на экранную поверхность
     timer.update(window)
+
+    if timer.is_end():
+        window.blit(lose, (win_width//2 - 100, win_height//2 - 50))
     pg.display.update()
 
     clock.tick(FPS)
 
-    if timer.is_end():
-        window.blit(lose, (win_width//2 - 100, win_height//2 - 50))
+
 
