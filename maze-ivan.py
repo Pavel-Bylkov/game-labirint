@@ -2,8 +2,7 @@ import pygame as pg
 from random import randint
 from time import time
 
-# ToDo Доделать расстановку стен
-# ToDo Добавить охранников
+# ToDo Добавить охранникам сканер - если попадаем в поле зрения, бегут за нами
 # Todo Загрузить музыку для фона, и эффектов - поймал охранник, собрал предмет, Геемовер и Победа
 
 
@@ -29,44 +28,64 @@ class GameSprite(pg.sprite.Sprite):
 class Player(GameSprite):
     def update(self) -> None:
         keys = pg.key.get_pressed()  # получаем словарь со всеми клавишами и их состоянием
-        pos = self.rect.x, self.rect.y
-        if keys[pg.K_LEFT] and self.rect.x > 5:
+        x, y = self.rect.x, self.rect.y
+        if keys[pg.K_LEFT]:
             self.rect.x -= self.speed
-        if keys[pg.K_RIGHT] and self.rect.right < win_width - 5:
+            if pg.sprite.spritecollide(self, walls, dokill=False):
+                self.rect.x = x
+        if keys[pg.K_RIGHT]:
             self.rect.x += self.speed
-        if keys[pg.K_UP] and self.rect.y > 5:
+            if pg.sprite.spritecollide(self, walls, dokill=False):
+                self.rect.x = x
+        if keys[pg.K_UP]:
             self.rect.y -= self.speed
-        if keys[pg.K_DOWN] and self.rect.bottom < win_height - 5:
+            if pg.sprite.spritecollide(self, walls, dokill=False):
+                self.rect.y = y
+        if keys[pg.K_DOWN]:
             self.rect.y += self.speed
-        if pg.sprite.spritecollide(self, walls, dokill=False):
-            self.rect.x, self.rect.y = pos
+            if pg.sprite.spritecollide(self, walls, dokill=False):
+                self.rect.y = y
+
 
 
 class Guard(GameSprite):
-    def __init__(self, img, x, y, size_x, size_y, speed, direction, start, end):
+    def __init__(self, img, x, y, size_x, size_y, speed):
         super().__init__(img, x, y, size_x, size_y, speed)
-        self.direction = direction
-        self.start = start  # граница сверху или слева
-        self.end = end  # граница снизу или справа
+        self.end_x = randint(10, win_width//5 - 10) * 5  # случайное положение по оси х
+        self.end_y = randint(10, win_height//5 - 10) * 5  # случайное положение по оси у
+        self.last_x, self.last_y = x, y
+
 
     def update(self):
-        if self.direction == "up" and self.rect.y < self.start:
-            self.direction = "down"
-        elif self.direction == "down" and self.rect.y > self.end:
-            self.direction = "up"
-        elif self.direction == "left" and self.rect.x < self.start:
-            self.direction = "right"
-        elif self.direction == "right" and self.rect.x > self.end:
-            self.direction = "left"
+        if self.rect.collidepoint(self.end_x, self.end_y):
+            self.end_x = randint(10, win_width // 5 - 10) * 5  # случайное положение по оси х
+            self.end_y = randint(10, win_height // 5 - 10) * 5
 
-        if self.direction == "up":
+        if self.last_y == self.rect.y and self.last_y - self.end_y < 0:
+            self.up_down = "down"
+        elif self.last_y == self.rect.y and self.last_y - self.end_y > 0:
+            self.up_down = "up"
+        if self.last_x == self.rect.x and self.last_x - self.end_x < 0:
+            self.left_right = "right"
+        elif self.last_x == self.rect.x and self.last_x - self.end_x > 0:
+            self.left_right = "left"
+        x, y = self.rect.x, self.rect.y
+        if self.up_down == "up":
             self.rect.y = self.rect.y - self.speed
-        elif self.direction == "down":
+            if pg.sprite.spritecollide(self, walls, dokill=False):
+                self.rect.y = y
+        elif self.up_down == "down":
             self.rect.y += self.speed
-        elif self.direction == "left":
+            if pg.sprite.spritecollide(self, walls, dokill=False):
+                self.rect.y = y
+        if self.left_right == "left":
             self.rect.x -= self.speed
-        elif self.direction == "right":
+            if pg.sprite.spritecollide(self, walls, dokill=False):
+                self.rect.x = x
+        elif self.left_right == "right":
             self.rect.x += self.speed
+            if pg.sprite.spritecollide(self, walls, dokill=False):
+                self.rect.x = x
 
 
 class Wall(pg.sprite.Sprite):
@@ -146,10 +165,8 @@ lose = font.render("You LOSE!!!", True, RED)
 hero = Player(img="шар.png", x=45, y=45, size_x=50, size_y=50, speed=10)
 guards = pg.sprite.Group()
 guards.add(
-    Guard(img="шар.png", x=win_width - 100, y=win_height//2, size_x=50, size_y=50,
-                        speed=7, direction="left", start=500, end=win_width - 100),
-    Guard(img="шар.png", x=win_width//2, y=win_height//2, size_x=50, size_y=50,
-                        speed=7, direction="up", start=50, end=win_height - 150)
+    Guard(img="шар.png", x=win_width - 100, y=win_height//2, size_x=50, size_y=50, speed=7),
+    Guard(img="шар.png", x=win_width//2, y=win_height//2, size_x=50, size_y=50, speed=7)
 )
 aurum = GameSprite(img="treasure.png", x=win_width - 100, y=win_height - 100, size_x=60, size_y=60, speed=10)
 walls = pg.sprite.Group()
@@ -160,6 +177,7 @@ walls.add(
     Wall(x=0, y=525, size_x=375, size_y=15, color=BLUE),
     # вертикальные
     Wall(x=0, y=0, size_x=45, size_y=win_height, color=BLUE),
+    Wall(x=win_width//2, y=0, size_x=15, size_y=win_height//2, color=BLUE),
     Wall(x=win_width - 35, y=0, size_x=35, size_y=win_height, color=BLUE),
     Wall(x=112, y=0, size_x=15, size_y=375, color=BLUE),
 )
