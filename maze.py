@@ -2,13 +2,20 @@ import pygame as pg
 from random import randint
 from time import time
 
-# Todo Загрузить музыку для фона, и эффектов - поймал охранник, собрал предмет, Геемовер и Победа
 
 directions = {"up": 0, "down": 180, "left": -90, "right": 90}
 WHITE = (255, 255, 255)
 BLUE = (45, 62, 172)
 GREEN = (50, 200, 60)
 RED = (150, 30, 30)
+
+pg.mixer.init()
+pg.mixer.music.load("jungles.ogg")
+pg.mixer.music.set_volume(0.2)
+guard_kick = pg.mixer.Sound("kick.ogg")
+guard_kick.set_volume(0.3)
+money_sound = pg.mixer.Sound("money.ogg")
+money_sound.set_volume(0.3)
 
 
 class GameSprite(pg.sprite.Sprite):
@@ -27,20 +34,28 @@ class GameSprite(pg.sprite.Sprite):
 class Player(GameSprite):
     def update(self) -> None:
         keys = pg.key.get_pressed()  # получаем словарь со всеми клавишами и их состоянием
-        pos = self.rect.x, self.rect.y
+        x, y = self.rect.x, self.rect.y
         if keys[pg.K_LEFT] and self.rect.x > 5:
             self.rect.x -= self.speed
+            if pg.sprite.spritecollide(self, walls, dokill=False):
+                self.rect.x = x
         if keys[pg.K_RIGHT] and self.rect.right < win_width - 5:
             self.rect.x += self.speed
+            if pg.sprite.spritecollide(self, walls, dokill=False):
+                self.rect.x = x
         if keys[pg.K_UP] and self.rect.y > 5:
             self.rect.y -= self.speed
+            if pg.sprite.spritecollide(self, walls, dokill=False):
+                self.rect.y = y
         if keys[pg.K_DOWN] and self.rect.bottom < win_height - 5:
             self.rect.y += self.speed
-        if pg.sprite.spritecollide(self, walls, dokill=False):
-            self.rect.x, self.rect.y = pos
+            if pg.sprite.spritecollide(self, walls, dokill=False):
+                self.rect.y = y
+
 
     def collide_guards(self, enemies):
         if pg.sprite.spritecollide(self, enemies, dokill=False):
+            guard_kick.play()
             self.rect.x, self.rect.y = start_x, start_y
 
 
@@ -153,7 +168,9 @@ hero = Player(img="шар.png", x=start_x, y=start_y, size_x=50, size_y=50, spee
 guards = pg.sprite.Group()
 guards.add(
     Guard(img="шар.png", x=win_width - 100, y=win_height//2, size_x=50, size_y=50,
-              speed=7, direction=-90, start=500, end=win_width - 100)
+              speed=7, direction=-90, start=500, end=win_width - 100),
+    Guard(img="шар.png", x=win_width//2, y=win_height//2, size_x=50, size_y=50,
+              speed=7, direction=-0, start=100, end=win_height - 100)
 )
 eleksir = pg.sprite.Group()
 eleksir.add(GameSprite(img="treasure.png", x=100, y=win_height - 100, size_x=60, size_y=60, speed=10))
@@ -179,6 +196,7 @@ FPS = 30  # частота срабатывания таймера 30 кадро
 finish = False
 pause = False
 run = True
+pg.mixer.music.play()
 while run:
     for event in pg.event.get():
         if event.type == pg.QUIT:
@@ -186,8 +204,10 @@ while run:
         if event.type == pg.KEYDOWN and event.key == pg.K_p:
             if pause:
                 pause = False
+                pg.mixer.music.play()
             else:
                 pause = True
+                pg.mixer.music.stop()
     if not finish and not pause:
         # обновляем координаты и накладываем на экранную поверхность фон и всех спрайтов
         window.blit(background, (0, 0))  # копирование изображения на экранную поверхность
@@ -206,6 +226,7 @@ while run:
 
         if pg.sprite.collide_mask(hero, aurum):
             finish = True
+            money_sound.play()
             window.blit(win, (win_width // 2 - 100, win_height // 2 - 50))
 
         if pg.sprite.spritecollide(hero, eleksir, dokill=True):
