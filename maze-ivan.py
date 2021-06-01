@@ -2,7 +2,8 @@ import pygame as pg
 
 from time import time
 
-# ToDo Добавить охранникам сканер - если попадаем в поле зрения, бегут за нами
+# Todo Добавить телепорты по углам карты
+# Todo Элексир заморозки - с определенным радиусом и суперсилы - на короткое время.
 # Todo Загрузить музыку для фона, и эффектов - поймал охранник, собрал предмет, Геемовер и Победа
 
 WHITE = (255, 255, 255)
@@ -133,7 +134,8 @@ class Text:
         self.color = color
         self.fsize = fsize
         self.font = pg.font.SysFont("Arial", fsize)
-        self.image = self.font.render(self.text, True, self.color)
+        self.font.set_italic(True)  # Устанвливаем оформление шрифта в Курсив
+        self.image = self.font.render(self.text, True, self.color)  # создаем картинку из текста
         self.x = x
         self.y = y
 
@@ -152,29 +154,51 @@ class Text:
         self.x = x
         self.y = y
 
-    def draw(self, window2):
-        window2.blit(self.image, (self.x, self.y))
+    def draw(self, screen):
+        screen.blit(self.image, (self.x, self.y))
 
-    def text_update(self, text, window2):
+    def text_update(self, text, screen):
         self.set_text(text)
-        self.draw(window2)
+        self.draw(screen)
 
 
 class Timer(Text):
-    def __init__(self, text, start_time, x, y, fsize, color):
+    def __init__(self, start_time, x, y, fsize, color, text=""):
         super().__init__(text, x, y, fsize, color)
         self.start_time = start_time
-        self.last_time = time()
+        self.current_time = start_time
+        self.last_time = time()  # получаем текущее значение в секундах с 1 янв 1970 года
         self.text_prefix = text  # чтобы не перезаписывать каждый раз Тест до значения таймера
+        self.pause = False
+        self.start_color = color
 
-    def update(self, window2):
-        if self.start_time > 0 and time() - self.last_time > 1:
-            self.start_time -= 1
+    def update(self, screen):
+        if self.current_time > 0 and not self.pause and time() - self.last_time > 1:
+            self.current_time -= 1
             self.last_time = time()
-        self.text_update(self.text_prefix + str(self.start_time), window2)
+        elif self.pause and time() - self.last_time > 0.5:
+            self.last_time = time()
+            if self.color == self.start_color:
+                self.set_color(RED)
+            else:
+                self.set_color(self.start_color)
+        self.text_update(self.text_prefix + str(self.current_time), screen)
 
     def is_end(self):
-        return self.start_time == 0
+        return self.current_time == 0
+
+    def do_pause(self):
+        if self.pause:
+            self.pause = False
+            self.last_time = time()
+        else:
+            self.pause = True
+
+    def up_time(self, add_time):
+        self.current_time += add_time
+
+    def restart(self):
+        self.current_time = self.start_time
 
 
 pg.init()  # настройка pygame на наше железо, в том числе видео карта, звуковая и установленные шрифты
@@ -227,6 +251,8 @@ while run:
     for event in pg.event.get():
         if event.type == pg.QUIT:
             run = False
+        if event.type == pg.KEYDOWN and event.key == pg.K_p:
+            timer.do_pause()
     # обновляем координаты и накладываем на экранную поверхность фон и всех спрайтов
     # window.blit(background, (0, 0))  # копирование изображения на экранную поверхность
     window.fill(GREEN)
