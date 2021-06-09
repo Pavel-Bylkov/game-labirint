@@ -4,7 +4,7 @@ from time import time
 
 # Todo Добавить телепорты по углам карты
 # Todo Элексир заморозки - с определенным радиусом и суперсилы - на короткое время.
-# Todo Загрузить музыку для фона, и эффектов - поймал охранник, собрал предмет, Геемовер и Победа
+# Todo Загрузить музыку для фона, и эффектов - поймал охранник, собрал предмет, Геймовер и Победа
 
 WHITE = (255, 255, 255)
 BLUE = (45, 62, 202)
@@ -12,6 +12,7 @@ GREEN = (50, 200, 60)
 RED = (150, 30, 30)
 
 win_width, win_height = 1200, 900  # задаем размеры экранной поверхности
+timer_freeze = None
 
 
 class GameSprite(pg.sprite.Sprite):
@@ -63,9 +64,11 @@ class Scanner(pg.sprite.Sprite):
         self.rect.centery = y
 
 
-class Guard(GameSprite):
+class Guard(GameSprite): #! sdfsdfsfd
+    # Todo Сделать рефакторинг update
     # ToDo В дальнейшем добавить разделение на разные маршруты
     # ToDo Проверить сброс генератора случайных чисел - при создание спрайта
+    # ToDo Проверить алгоритм входа в коридор - чтобы не зависал на пол тела
     position = [(60, 60), (win_width - 110, 60), (win_width//2, win_height//2),
                 (60, win_height - 110), (win_width - 110, win_height - 110),
                 (60, win_height//2), (win_width - 110, win_height//2),
@@ -82,6 +85,7 @@ class Guard(GameSprite):
                                      size_x=size_x, size_y=size_x)
 
     def update(self, player):
+        global timer
         if pg.sprite.collide_rect(self.scanner, player):
             self.scanner_walls.rect = pg.draw.line(window, GREEN,
                                                    (self.rect.centerx, self.rect.centery),
@@ -96,23 +100,23 @@ class Guard(GameSprite):
         self.last_x, self.last_y = self.rect.x, self.rect.y
 
         x, y = self.rect.x, self.rect.y
-        if self.last_y > self.end_y - 3:  # делаем +/- 5 из за зависаний в разных точках
+        if not timer and self.last_y > self.end_y - 3:  # делаем +/- 5 из за зависаний в разных точках
             self.rect.y -= self.speed
             if pg.sprite.spritecollide(self, walls, dokill=False):
                 self.rect.y = y
-        if self.last_y < self.end_y + 3:
+        if not timer and self.last_y < self.end_y + 3:
             self.rect.y += self.speed
             if pg.sprite.spritecollide(self, walls, dokill=False):
                 self.rect.y = y
-        if self.last_x > self.end_x - 3:
+        if not timer and self.last_x > self.end_x - 3:
             self.rect.x -= self.speed
             if pg.sprite.spritecollide(self, walls, dokill=False):
                 self.rect.x = x
-        if self.last_x < self.end_x + 3:
+        if not timer and self.last_x < self.end_x + 3:
             self.rect.x += self.speed
             if pg.sprite.spritecollide(self, walls, dokill=False):
                 self.rect.x = x
-        if self.last_x == self.rect.x and self.last_y == self.rect.y:
+        if not timer and self.last_x == self.rect.x and self.last_y == self.rect.y:
             self.end_x, self.end_y = self.choice(Guard.position)
         self.scanner.update(x=self.rect.centerx, y=self.rect.centery)
         self.scanner_walls.update(x=self.rect.centerx, y=self.rect.centery)
@@ -201,6 +205,46 @@ class Timer(Text):
         self.current_time = self.start_time
 
 
+def freeze():
+    global timer_freeze, timer
+
+    if timer_freeze is None:
+        timer_freeze = Timer(text="Time freeze: ", start_time=10,
+                             x=win_width - 250, y=10, fsize=30, color=WHITE)
+    else:
+        timer_freeze.up_time(10)
+    timer = True
+
+
+class Elexir(GameSprite):
+    def __init__(self, img, x, y, size_x, size_y, mode):
+        super().__init__(img, x, y, size_x, size_y, 0)
+        self.mode = mode
+        self.last_time = time()
+
+    def update(self, player):
+        if time() - self.last_time > 10:
+            self.kill()
+        if pg.sprite.collide_rect(self, player):
+            self.action()
+            self.kill()
+
+    def action(self):
+        if self.mode == 1:
+            freeze()
+        elif self.mode == 2:
+            pass # для Силы
+
+def add_elixir():
+    from random import randint
+    temp_el = Elexir(img="freeze.png", x=randint(10, win_width//5 - 10) * 5,
+                     y=randint(10, win_height//5 - 10) * 5, size_x=40, size_y=40, mode=1)
+    while (pg.sprite.spritecollide(temp_el, walls, dokill=False) or
+            pg.sprite.collide_rect(temp_el, hero)):
+        temp_el.rect.x = randint(10, win_width//5 - 10) * 5
+        temp_el.rect.y = randint(10, win_height//5 - 10) * 5
+    elixirs.add(temp_el)
+
 pg.init()  # настройка pygame на наше железо, в том числе видео карта, звуковая и установленные шрифты
 pg.font.init()
 
@@ -241,33 +285,47 @@ for x in range(50, win_width, 50):
     setka.add(Wall(x=x, y=0, size_x=2, size_y=win_height, color=RED))
 # window.fill(BLUE)   # заливка экрана одним цветом
 
-timer = Timer(text="Time: ", start_time=30, x=win_width - 150, y=10, fsize=30, color=WHITE)
+elixirs = pg.sprite.Group()
+
+timer = False
 
 clock = pg.time.Clock()
 FPS = 30  # частота срабатывания таймера 30 кадров в секунду
+
+last_time_el = time()
 
 run = True
 while run:
     for event in pg.event.get():
         if event.type == pg.QUIT:
             run = False
-        if event.type == pg.KEYDOWN and event.key == pg.K_p:
-            timer.do_pause()
+
     # обновляем координаты и накладываем на экранную поверхность фон и всех спрайтов
     # window.blit(background, (0, 0))  # копирование изображения на экранную поверхность
     window.fill(GREEN)
     hero.update()
+
     guards.update(hero)
+    elixirs.update(hero)
+
     hero.reset()
     aurum.reset()
 
     guards.draw(window)
     walls.draw(window)  # вызываем групповой метод копирования изображения каждой стены на экранную поверхность
     setka.draw(window)
-    timer.update(window)
+    elixirs.draw(window)
 
-    if timer.is_end():
-        window.blit(lose, (win_width//2 - 100, win_height//2 - 50))
+    if timer:
+        timer_freeze.update(window)
+        if timer_freeze.is_end():
+            timer_freeze = None
+            timer = False
+
+    if time() - last_time_el > 35:
+        add_elixir()
+        last_time_el = time()
+
     pg.display.update()
 
     clock.tick(FPS)
