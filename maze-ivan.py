@@ -76,27 +76,29 @@ class Guard(GameSprite): #! sdfsdfsfd
 
     def __init__(self, img, x, y, size_x, size_y, speed):
         super().__init__(img, x, y, size_x, size_y, speed)
-        from random import choice
-        self.choice = choice
-        self.end_x, self.end_y = self.choice(Guard.position)
+        self.choice()
         self.last_x, self.last_y = None, None
         self.scanner = Scanner(x=self.rect.centerx, y=self.rect.centery, size_x=size_x*50, size_y=size_x*50)
         self.scanner_walls = Scanner(x=self.rect.centerx, y=self.rect.centery,
                                      size_x=size_x, size_y=size_x)
+        self.state = "Патруль"
+        self.sled = []
+
+    def choice(self):
+        from random import choice
+        self.end_x, self.end_y = choice(Guard.position)
 
     def update(self, player):
         global timer
-        if pg.sprite.collide_rect(self.scanner, player):
-            self.scanner_walls.rect = pg.draw.line(window, GREEN,
-                                                   (self.rect.centerx, self.rect.centery),
-                                                   (player.rect.centerx, player.rect.centery))
-            for wall in walls:
-                if pg.sprite.collide_rect(self.scanner_walls, wall):
-                    break
-            else:
-                self.end_x, self.end_y = player.rect.x, player.rect.y
-        while self.rect.collidepoint(self.end_x, self.end_y):
-            self.end_x, self.end_y = self.choice(Guard.position)
+        # Состояние прямой видимости
+        self.go_to_goal_visible(player)
+
+        while not self.state == "Прямая видимость" and self.rect.collidepoint(self.end_x, self.end_y):
+            # выбор случайной точки в состоянии Патруль или Погоня
+            if self.state == "Патруль":
+                self.choice()
+            if self.state == "Погоня":
+                self.choice_random_point(player)
         self.last_x, self.last_y = self.rect.x, self.rect.y
 
         x, y = self.rect.x, self.rect.y
@@ -117,10 +119,35 @@ class Guard(GameSprite): #! sdfsdfsfd
             if pg.sprite.spritecollide(self, walls, dokill=False):
                 self.rect.x = x
         if not timer and self.last_x == self.rect.x and self.last_y == self.rect.y:
-            self.end_x, self.end_y = self.choice(Guard.position)
+            self.choice()
+            self.state = "Патруль"
         self.scanner.update(x=self.rect.centerx, y=self.rect.centery)
         self.scanner_walls.update(x=self.rect.centerx, y=self.rect.centery)
 
+    def go_to_goal_visible(self, player):
+        if pg.sprite.collide_rect(self.scanner, player):
+            self.scanner_walls.rect = pg.draw.line(window, GREEN,
+                                                   (self.rect.centerx, self.rect.centery),
+                                                   (player.rect.centerx, player.rect.centery))
+            for wall in walls:
+                if pg.sprite.collide_rect(self.scanner_walls, wall):
+                    if self.state == "Прямая видимость":
+                        self.state = "Погоня"
+                        self.sled.append((player.rect.x, player.rect.y))
+                    elif self.state == "Погоня":
+                        self.sled.append((player.rect.x, player.rect.y))
+                    break
+            else:
+                self.end_x, self.end_y = player.rect.x, player.rect.y
+                self.state = "Прямая видимость"
+                self.sled.clear()
+
+    def choice_random_point(self, player):
+        # Находится в состоянии Погоня, в точке где потерял из виду
+        if len(self.sled) > 0:
+            self.end_x, self.end_y = self.sled.pop(0)
+        else:
+            self.state = "Патруль"
 
 class Wall(pg.sprite.Sprite):
     def __init__(self, x, y, size_x, size_y, color):
