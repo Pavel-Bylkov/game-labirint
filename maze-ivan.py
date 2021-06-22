@@ -270,7 +270,6 @@ class Elexir(GameSprite):
         if not self.visible:
             elixirs.remove(self)
 
-
     def hide(self):
         self.visible = False
 
@@ -284,8 +283,10 @@ class Elexir(GameSprite):
 
 def add_elixir():
     from random import randint
-    temp_el = Elexir(img="freeze.png", x=randint(10, win_width//5 - 10) * 5,
-                     y=randint(10, win_height//5 - 10) * 5, size_x=40, size_y=40, mode=1)
+    mode = randint(1, 3)
+    skins = ("", "freeze.png", "yellow.png", "red.png")
+    temp_el = Elexir(img=skins[mode], x=randint(10, win_width//5 - 10) * 5,
+                     y=randint(10, win_height//5 - 10) * 5, size_x=40, size_y=40, mode=mode)
     while (pg.sprite.spritecollide(temp_el, walls, dokill=False) or
             pg.sprite.collide_rect(temp_el, hero)):
         temp_el.rect.x = randint(10, win_width//5 - 10) * 5
@@ -306,7 +307,7 @@ class Cell:
 # Значение в списке items - 0 - пусто, 1- зелье Зеленое, 2- зелье Желтое, 3 - зелье Красное
 class Bag:
     def __init__(self, x, y):
-        self.cells = [Cell(x + 40*i, y) for i in range(5)]
+        self.cells = [Cell(x + 40 * i, y) for i in range(5)]
         self.items = [None]*5
         self.images = [None, pg.transform.scale(pg.image.load("freeze.png"), (32, 32)),
                        pg.transform.scale(pg.image.load("yellow.png"), (32, 32)),
