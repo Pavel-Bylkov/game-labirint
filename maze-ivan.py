@@ -3,6 +3,7 @@ import pygame as pg
 from time import time
 
 # Todo Добавить телепорты по углам карты
+# Todo Сделать инвентарь - добавлять все туда, а активацию сделать от туда.
 # Todo Элексир заморозки - с определенным радиусом и суперсилы - на короткое время.
 # Todo Загрузить музыку для фона, и эффектов - поймал охранник, собрал предмет, Геймовер и Победа
 
@@ -10,6 +11,8 @@ WHITE = (255, 255, 255)
 BLUE = (45, 62, 202)
 GREEN = (50, 200, 60)
 RED = (150, 30, 30)
+YELLOW = (255, 255, 0)
+DARK_BLUE = (0, 0, 100)
 
 win_width, win_height = 1200, 900  # задаем размеры экранной поверхности
 timer_freeze = None
@@ -29,6 +32,10 @@ class GameSprite(pg.sprite.Sprite):
 
 
 class Player(GameSprite):
+    def __init__(self, img, x, y, size_x, size_y, speed):
+        super().__init__(img, x, y, size_x, size_y, speed)
+        self.bag = Bag(x=50, y=2)
+
     def update(self) -> None:
         keys = pg.key.get_pressed()  # получаем словарь со всеми клавишами и их состоянием
         x, y = self.rect.x, self.rect.y
@@ -48,7 +55,11 @@ class Player(GameSprite):
             self.rect.y += self.speed
             if pg.sprite.spritecollide(self, walls, dokill=False):
                 self.rect.y = y
+        self.bag.update()
 
+    def reset(self, screen):
+        super().reset()
+        self.bag.draw(screen)
 
 class Scanner(pg.sprite.Sprite):
     def __init__(self, x, y, size_x, size_y):
@@ -248,19 +259,28 @@ class Elexir(GameSprite):
         super().__init__(img, x, y, size_x, size_y, 0)
         self.mode = mode
         self.last_time = time()
+        self.visible = True
 
     def update(self, player):
-        if time() - self.last_time > 10:
+        if self.visible and time() - self.last_time > 10:
             self.kill()
-        if pg.sprite.collide_rect(self, player):
-            self.action()
-            self.kill()
+        if self.visible and pg.sprite.collide_rect(self, player):
+            if player.bag.add_item(self):  # добавить в инвентарь
+                self.hide()
+        if not self.visible:
+            elixirs.remove(self)
+
+
+    def hide(self):
+        self.visible = False
 
     def action(self):
         if self.mode == 1:
             freeze()
         elif self.mode == 2:
-            pass # для Силы
+            pass  # для Силы
+        self.kill()
+
 
 def add_elixir():
     from random import randint
@@ -271,6 +291,62 @@ def add_elixir():
         temp_el.rect.x = randint(10, win_width//5 - 10) * 5
         temp_el.rect.y = randint(10, win_height//5 - 10) * 5
     elixirs.add(temp_el)
+
+
+class Cell:
+    def __init__(self, x, y):
+        self.rect = pg.Rect(x, y, 40, 40)  # квадрат
+        self.fill_color = BLUE
+
+    def draw(self, mw):
+        pg.draw.rect(mw, self.fill_color, self.rect)
+        # обводка существующего прямоугольника
+        pg.draw.rect(mw, DARK_BLUE, self.rect, 3)
+
+# Значение в списке items - 0 - пусто, 1- зелье Зеленое, 2- зелье Желтое, 3 - зелье Красное
+class Bag:
+    def __init__(self, x, y):
+        self.cells = [Cell(x + 40*i, y) for i in range(5)]
+        self.items = [None]*5
+        self.images = [None, pg.transform.scale(pg.image.load("freeze.png"), (32, 32)),
+                       pg.transform.scale(pg.image.load("yellow.png"), (32, 32)),
+                       pg.transform.scale(pg.image.load("red.png"), (32, 32))]
+
+    def add_item(self, item):
+        for i in range(5):
+            if self.items[i] is None:
+                self.items[i] = item
+                return True
+        return False
+
+    def activate_item(self, i):
+        if self.items[i] is not None:
+            self.items[i].action()
+            self.items[i] = None
+
+    def update(self):
+        keys = pg.key.get_pressed()  # получаем словарь со всеми клавишами и их состоянием
+        if keys[pg.K_1]:
+            self.activate_item(0)
+        if keys[pg.K_2]:
+            self.activate_item(1)
+        if keys[pg.K_3]:
+            self.activate_item(2)
+        if keys[pg.K_4]:
+            self.activate_item(3)
+        if keys[pg.K_5]:
+            self.activate_item(4)
+
+    def draw_item(self, item, screen, x, y):
+        if item is not None:
+            screen.blit(self.images[item.mode], (x, y))
+
+    def draw(self, screen):
+        for i in range(5):
+            self.cells[i].draw(screen)
+            self.draw_item(self.items[i], screen, self.cells[i].rect.x + 4, self.cells[i].rect.y + 4)
+
+
 
 pg.init()  # настройка pygame на наше железо, в том числе видео карта, звуковая и установленные шрифты
 pg.font.init()
@@ -335,7 +411,7 @@ while run:
     guards.update(hero)
     elixirs.update(hero)
 
-    hero.reset()
+
     aurum.reset()
 
     guards.draw(window)
@@ -343,13 +419,15 @@ while run:
     setka.draw(window)
     elixirs.draw(window)
 
+    hero.reset(window)
+
     if timer:
         timer_freeze.update(window)
         if timer_freeze.is_end():
             timer_freeze = None
             timer = False
 
-    if time() - last_time_el > 35:
+    if time() - last_time_el > 5:
         add_elixir()
         last_time_el = time()
 
