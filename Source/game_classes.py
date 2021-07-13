@@ -18,31 +18,43 @@ class Player(GameSprite):
     def __init__(self, img, x, y, size_x, size_y, speed):
         super().__init__(img, x, y, size_x, size_y, speed)
         self.bag = Bag(x=50, y=2)
+        self.life = LIFE_HERO
+        self.life_img = Text(text=f"Life = {self.life}", x=300, y=10, fsize=30, color=WHITE)
+        self.points = 0
+        self.points_img = Text(text=f"Points = 0", x=450, y=10, fsize=30, color=WHITE)
 
-    def update(self, walls):
-        keys = pg.key.get_pressed()  # получаем словарь со всеми клавишами и их состоянием
-        x, y = self.rect.x, self.rect.y
-        if keys[pg.K_LEFT]:
-            self.rect.x -= self.speed
-            if pg.sprite.spritecollide(self, walls, dokill=False):
-                self.rect.x = x
-        if keys[pg.K_RIGHT]:
-            self.rect.x += self.speed
-            if pg.sprite.spritecollide(self, walls, dokill=False):
-                self.rect.x = x
-        if keys[pg.K_UP]:
-            self.rect.y -= self.speed
-            if pg.sprite.spritecollide(self, walls, dokill=False):
-                self.rect.y = y
-        if keys[pg.K_DOWN]:
-            self.rect.y += self.speed
-            if pg.sprite.spritecollide(self, walls, dokill=False):
-                self.rect.y = y
-        self.bag.update()
+    def update(self, walls, guards):
+        if pg.sprite.spritecollide(self, guards, dokill=False):
+            self.life -= 1
+        if self.life > 0:
+            self.life_img.set_text(f"Life = {self.life}")
+            keys = pg.key.get_pressed()  # получаем словарь со всеми клавишами и их состоянием
+            x, y = self.rect.x, self.rect.y
+            if keys[pg.K_LEFT]:
+                self.rect.x -= self.speed
+                if pg.sprite.spritecollide(self, walls, dokill=False):
+                    self.rect.x = x
+            if keys[pg.K_RIGHT]:
+                self.rect.x += self.speed
+                if pg.sprite.spritecollide(self, walls, dokill=False):
+                    self.rect.x = x
+            if keys[pg.K_UP]:
+                self.rect.y -= self.speed
+                if pg.sprite.spritecollide(self, walls, dokill=False):
+                    self.rect.y = y
+            if keys[pg.K_DOWN]:
+                self.rect.y += self.speed
+                if pg.sprite.spritecollide(self, walls, dokill=False):
+                    self.rect.y = y
+            self.bag.update()
+        else:
+            self.life_img.set_text(f"Life = 0")
 
     def reset(self, screen):
         super().reset()
         self.bag.draw(screen)
+        self.life_img.draw(screen)
+        self.points_img.draw(screen)
 
 
 class Scanner(pg.sprite.Sprite):
@@ -83,8 +95,7 @@ class Guard(GameSprite):
         from random import choice
         self.end_x, self.end_y = choice(Guard.position)
 
-    def update(self, player, walls):
-        global timer
+    def update(self, player, walls, timer):
         # Состояние прямой видимости
         self.go_to_goal_visible(player, walls)
 
@@ -97,23 +108,23 @@ class Guard(GameSprite):
         self.last_x, self.last_y = self.rect.x, self.rect.y
 
         x, y = self.rect.x, self.rect.y
-        if not timer and self.last_y > self.end_y - 3:  # делаем +/- 5 из за зависаний в разных точках
+        if not timer.flag and self.last_y > self.end_y - 3:  # делаем +/- 5 из за зависаний в разных точках
             self.rect.y -= self.speed
             if pg.sprite.spritecollide(self, walls, dokill=False):
                 self.rect.y = y
-        if not timer and self.last_y < self.end_y + 3:
+        if not timer.flag and self.last_y < self.end_y + 3:
             self.rect.y += self.speed
             if pg.sprite.spritecollide(self, walls, dokill=False):
                 self.rect.y = y
-        if not timer and self.last_x > self.end_x - 3:
+        if not timer.flag and self.last_x > self.end_x - 3:
             self.rect.x -= self.speed
             if pg.sprite.spritecollide(self, walls, dokill=False):
                 self.rect.x = x
-        if not timer and self.last_x < self.end_x + 3:
+        if not timer.flag and self.last_x < self.end_x + 3:
             self.rect.x += self.speed
             if pg.sprite.spritecollide(self, walls, dokill=False):
                 self.rect.x = x
-        if not timer and self.last_x == self.rect.x and self.last_y == self.rect.y:
+        if not timer.flag and self.last_x == self.rect.x and self.last_y == self.rect.y:
             self.choice()
             self.state = "Патруль"
         self.scanner.update(x=self.rect.centerx, y=self.rect.centery)
@@ -228,23 +239,35 @@ class Timer(Text):
         self.current_time = self.start_time
 
 
-def freeze():
-    global timer_freeze, timer
+class ControlTimer:
+    def __init__(self):
+        self.timer_freeze = None
+        self.flag = False
 
-    if timer_freeze is None:
-        timer_freeze = Timer(text="Time freeze: ", start_time=10,
-                             x=win_width - 250, y=10, fsize=30, color=WHITE)
-    else:
-        timer_freeze.up_time(10)
-    timer = True
+    def freeze(self):
+        if self.timer_freeze is None:
+            self.timer_freeze = Timer(text="Time freeze: ", start_time=10,
+                                 x=win_width - 250, y=10, fsize=30, color=WHITE)
+        else:
+            self.timer_freeze.up_time(10)
+        self.flag = True
+
+    def update(self, screen):
+        if self.flag:
+            self.timer_freeze.update(screen)
+            if self.timer_freeze.is_end():
+                del self.timer_freeze
+                self.timer_freeze = None
+                self.flag = False
 
 
 class Elexir(GameSprite):
-    def __init__(self, img, x, y, size_x, size_y, mode):
+    def __init__(self, img, x, y, size_x, size_y, mode, timer):
         super().__init__(img, x, y, size_x, size_y, 0)
         self.mode = mode
         self.last_time = time()
         self.visible = True
+        self.control_timer = timer
 
     def update(self, player, elixirs):
         if self.visible and time() - self.last_time > 10:
@@ -260,7 +283,7 @@ class Elexir(GameSprite):
 
     def action(self):
         if self.mode == 1:
-            freeze()
+            self.control_timer.freeze()
         elif self.mode == 2:
             pass  # для Силы
         self.kill()

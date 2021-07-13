@@ -11,6 +11,8 @@ DARK_BLUE = (0, 0, 100)
 
 win_width, win_height = 1200, 900  # задаем размеры экранной поверхности
 
+LIFE_HERO = 3
+
 pg.init()  # настройка pygame на наше железо, в том числе видео карта, звуковая и установленные шрифты
 pg.font.init()
 
@@ -26,6 +28,3 @@ lose = font.render("You LOSE!!!", True, RED)
 
 clock = pg.time.Clock()
 FPS = 30  # частота срабатывания таймера 30 кадров в секунду
-
-timer_freeze = None
-timer = False
