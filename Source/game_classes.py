@@ -23,10 +23,14 @@ class Player(GameSprite):
         self.points = 0
         self.points_img = Text(text=f"Points = 0", x=450, y=10, fsize=30, color=WHITE)
 
-    def update(self, walls, guards):
-        if pg.sprite.spritecollide(self, guards, dokill=False):
+    def update(self, walls, guards, control_timer, aurums):
+        if not control_timer.flag and pg.sprite.spritecollide(self, guards, dokill=False):
             self.life -= 1
+            control_timer.freeze(3)
         if self.life > 0:
+            if pg.sprite.spritecollide(self, aurums, dokill=True):
+                self.points += 1
+                self.points_img.set_text(f"Points = {self.points}")
             self.life_img.set_text(f"Life = {self.life}")
             keys = pg.key.get_pressed()  # получаем словарь со всеми клавишами и их состоянием
             x, y = self.rect.x, self.rect.y
@@ -244,12 +248,12 @@ class ControlTimer:
         self.timer_freeze = None
         self.flag = False
 
-    def freeze(self):
+    def freeze(self, t):
         if self.timer_freeze is None:
-            self.timer_freeze = Timer(text="Time freeze: ", start_time=10,
+            self.timer_freeze = Timer(text="Time freeze: ", start_time=t,
                                  x=win_width - 250, y=10, fsize=30, color=WHITE)
         else:
-            self.timer_freeze.up_time(10)
+            self.timer_freeze.up_time(t)
         self.flag = True
 
     def update(self, screen):
@@ -283,7 +287,7 @@ class Elexir(GameSprite):
 
     def action(self):
         if self.mode == 1:
-            self.control_timer.freeze()
+            self.control_timer.freeze(10)
         elif self.mode == 2:
             pass  # для Силы
         self.kill()

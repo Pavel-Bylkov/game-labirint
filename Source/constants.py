@@ -23,7 +23,7 @@ window = pg.display.set_mode((win_width, win_height))
 # background = pg.transform.scale(background, (win_width, win_height))
 
 font = pg.font.SysFont("Arial", 120)  # подключаем модуль font из pygame и создаем объект Шрифт
-win = font.render("You WIN!!!", True, GREEN)
+win = font.render("You WIN!!!", True, DARK_BLUE)
 lose = font.render("You LOSE!!!", True, RED)
 
 clock = pg.time.Clock()

@@ -1,7 +1,6 @@
 from Source.game_classes import *
 
-# ToDo Исправить отнимание жизней - давать три секунды убежать, все враги в заморозке.
-# Todo Добавить условия победы
+
 # Todo Добавить телепорты по углам карты
 # Todo Элексир суперсилы - на короткое время.
 # Todo Загрузить музыку для фона, и эффектов - поймал охранник, собрал предмет, Геймовер и Победа
@@ -20,15 +19,23 @@ def add_elixir(timer):
     elixirs.add(temp_el)
 
 
-
 hero = Player(img="шар.png", x=45, y=45, size_x=50, size_y=50, speed=10)
 guards = pg.sprite.Group()
 guards.add(
-    Guard(img="шар.png", x=win_width - 100, y=win_height//2, size_x=50, size_y=50, speed=4),
-    Guard(img="шар.png", x=win_width//2, y=win_height//2, size_x=50, size_y=50, speed=4)
+    Guard(img="sprite2.png", x=win_width - 100, y=win_height//2, size_x=50, size_y=50, speed=4),
+    Guard(img="sprite2.png", x=win_width//2, y=win_height//2, size_x=50, size_y=50, speed=4)
 )
-aurum = GameSprite(img="treasure.png", x=win_width - 100, y=win_height - 100,
-                   size_x=60, size_y=60, speed=10)
+
+aurums = pg.sprite.Group()
+position = [(260, 260), (win_width - 110, 60), (win_width//2, win_height//2),
+            (60, win_height - 110), (win_width - 110, win_height - 110),
+            (60, win_height//2), (win_width - 110, win_height//2),
+            (win_width//2, 60), (win_width//2, win_height - 110),
+            (3*win_width//4, 3*win_height//4)]
+for _ in range(len(position)):
+    x, y = position.pop()
+    aurums.add(GameSprite(img="treasure.png", x=x, y=y, size_x=50, size_y=50, speed=0))
+
 walls = pg.sprite.Group()
 walls.add(
     # горизонтальные
@@ -41,11 +48,11 @@ walls.add(
     Wall(x=win_width - 35, y=0, size_x=35, size_y=win_height, color=BLUE),
     Wall(x=112, y=0, size_x=15, size_y=375, color=BLUE),
 )
-setka = pg.sprite.Group()
-for y in range(50, win_height, 50):
-    setka.add(Wall(x=0, y=y, size_x=win_width, size_y=2, color=RED))
-for x in range(50, win_width, 50):
-    setka.add(Wall(x=x, y=0, size_x=2, size_y=win_height, color=RED))
+# setka = pg.sprite.Group()
+# for y in range(50, win_height, 50):
+#     setka.add(Wall(x=0, y=y, size_x=win_width, size_y=2, color=RED))
+# for x in range(50, win_width, 50):
+#     setka.add(Wall(x=x, y=0, size_x=2, size_y=win_height, color=RED))
 
 control_timer = ControlTimer()
 elixirs = pg.sprite.Group()
@@ -63,15 +70,15 @@ while run:
     # window.blit(background, (0, 0))  # копирование изображения на экранную поверхность
     if not finish:
         window.fill(GREEN)
-        hero.update(walls, guards)
+        hero.update(walls, guards, control_timer, aurums)
         guards.update(hero, walls, control_timer)
         elixirs.update(hero, elixirs)
         control_timer.update(window)
 
-        aurum.reset()
+        aurums.draw(window)
         guards.draw(window)
         walls.draw(window)  # вызываем групповой метод копирования изображения каждой стены на экранную поверхность
-        setka.draw(window)
+        # setka.draw(window)
         elixirs.draw(window)
         hero.reset(window)
 
@@ -79,9 +86,13 @@ while run:
             add_elixir(control_timer)
             last_time_el = time()
 
+        if len(aurums) == 0:
+            finish = True
+            window.blit(win, (win_width // 2 - 300, win_height // 2 - 60))
+
         if hero.life <= 0:
             finish = True
-            window.blit(lose, (win_width//2 - 300, win_height//2 - 60))
+            window.blit(lose, (win_width // 2 - 300, win_height // 2 - 60))
 
     pg.display.update()
     clock.tick(FPS)
